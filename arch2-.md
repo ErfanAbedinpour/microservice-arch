@@ -3,7 +3,7 @@ Here is the fully updated document with JWT for internal communication removed, 
 ````markdown
 # Enterprise Open Platform Security Design
 
-This document describes a secure and transparent design for an **enterprise financial application** that exposes an **open platform** to external companies and also uses internal microservices. The recommended model is: **OAuth2 at the edge, mTLS inside, JWT for authorization, and token exchange where needed**. [nvlpubs.nist](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-228.pdf)
+This document describes a secure and transparent design for an **enterprise financial application** that exposes an **open platform** to external companies and also uses internal microservices. The recommended model is: **OAuth2 at the edge, mTLS inside, JWT for authorization, and token exchange where needed**.
 
 ---
 
@@ -13,9 +13,9 @@ The platform should support three things at the same time:
 
 - **External partners** must integrate safely through public APIs.
 - **End users** must authenticate and access only what they are allowed to use.
-- **Internal services** must communicate securely with strong service identity and least privilege. [ibm](https://www.ibm.com/think/topics/api-authentication)
+- **Internal services** must communicate securely with strong service identity and least privilege.
 
-For a financial system, security should be built around **zero trust**: every request is authenticated, authorized, and logged, even inside the cluster. [redhat](https://www.redhat.com/en/blog/service-mesh-mtls)
+For a financial system, security should be built around **zero trust**: every request is authenticated, authorized, and logged, even inside the cluster.
 
 ---
 
@@ -26,14 +26,14 @@ Use these layers:
 - **API Gateway** as the single public entry point.
 - **Authorization Server / Auth Service** for OAuth2 and token issuance.
 - **Service Mesh or mTLS layer** for internal service-to-service encryption and identity.
-- **Internal microservices** that validate tokens and enforce domain-level permissions. [apiacademy](https://apiacademy.co/2020/04/api-management-for-microservices/)
+- **Internal microservices** that validate tokens and enforce domain-level permissions.
 
 A practical rule is:
 
 - **External access**: OAuth2 / OIDC.
 - **Internal transport**: mTLS.
 - **Authorization**: JWT claims and scopes.
-- **Sensitive hop-to-hop calls**: token exchange if needed. [docs.cidaas](https://docs.cidaas.com/guides/authentication-authorisation/oauth2/oauth2Flows/tokenexchange/)
+- **Sensitive hop-to-hop calls**: token exchange if needed.
 
 ---
 
@@ -41,18 +41,14 @@ A practical rule is:
 
 This design is a good fit for finance because it separates concerns clearly:
 
-- OAuth2 handles **who can call your platform** from the outside. [digitalocean](https://www.digitalocean.com/community/tutorials/an-introduction-to-oauth-2)
-- mTLS handles **which internal service is really calling** another service. [ibm](https://www.ibm.com/think/topics/api-authentication)
-- JWT handles **what the caller is allowed to do**. [nvlpubs.nist](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-228.pdf)
-- Token exchange gives you **least privilege** when a downstream service should not receive the original token. [docs.cidaas](https://docs.cidaas.com/guides/authentication-authorisation/oauth2/oauth2Flows/tokenexchange/)
+- OAuth2 handles **who can call your platform** from the outside.
+- mTLS handles **which internal service is really calling** another service.
+- JWT handles **what the caller is allowed to do**.
+- Token exchange gives you **least privilege** when a downstream service should not receive the original token.
 
-This is safer than relying only on API keys or only on forwarded tokens. [digitalocean](https://www.digitalocean.com/community/tutorials/an-introduction-to-oauth-2)
-
----
+This is safer than relying only on API keys or only on forwarded tokens. ---
 
 ## 4. External company flow
-
-External companies should not call internal services directly. They should use OAuth2 with the API Gateway only. [digitalocean](https://www.digitalocean.com/community/tutorials/an-introduction-to-oauth-2)
 
 ### Scenario
 
@@ -60,7 +56,7 @@ External companies should not call internal services directly. They should use O
 2. It receives a `client_id` and `client_secret`, or stronger credentials like certificate-based client auth.
 3. It requests an access token from your Auth Service.
 4. It calls your API Gateway with `Authorization: Bearer <access_token>`.
-5. The Gateway validates the token, checks scopes, rate limits, and routes the request to internal services. [nvlpubs.nist](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-228.pdf)
+5. The Gateway validates the token, checks scopes, rate limits, and routes the request to internal services.
 
 ### Sequence diagram
 
@@ -80,7 +76,6 @@ sequenceDiagram
     S1-->>GW: Response
     GW-->>Partner: Final response
 ```
-````
 
 The key point is that the partner never sees internal services and internal services never need to be public. [ibm](https://www.ibm.com/think/topics/api-authentication)
 
@@ -242,3 +237,4 @@ If you want, I can next convert this into a **clean final Markdown file with tit
 ```
 
 ```
+````
