@@ -1,6 +1,3 @@
-Here is the fully updated document with JWT for internal communication removed, while keeping everything else exactly as in the original (including the external company flow, user flow, diagrams, and all text). Only internal service-to-service JWT validation and service token references have been removed.
-
-````markdown
 # Enterprise Open Platform Security Design
 
 This document describes a secure and transparent design for an **enterprise financial application** that exposes an **open platform** to external companies and also uses internal microservices. The recommended model is: **OAuth2 at the edge, mTLS inside, JWT for authorization, and token exchange where needed**.
@@ -77,7 +74,7 @@ sequenceDiagram
     GW-->>Partner: Final response
 ```
 
-The key point is that the partner never sees internal services and internal services never need to be public. [ibm](https://www.ibm.com/think/topics/api-authentication)
+The key point is that the partner never sees internal services and internal services never need to be public.
 
 ---
 
@@ -163,7 +160,7 @@ Use this when you want a **new token** with a different audience, reduced scope,
 ### Practical guidance
 
 - Use **forwarding** for simple user-driven business flows.
-- Use **token exchange** for highly sensitive flows, partner boundaries, or when downstream services should not trust the original token directly. [nvlpubs.nist](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-228.pdf)
+- Use **token exchange** for highly sensitive flows, partner boundaries, or when downstream services should not trust the original token directly.
 
 ---
 
@@ -237,4 +234,3 @@ If you want, I can next convert this into a **clean final Markdown file with tit
 ```
 
 ```
-````
