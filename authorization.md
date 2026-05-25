@@ -8,39 +8,12 @@ This document describes how users are authenticated and authorized in our micros
 
 Authentication uses **JWT** with two tokens:
 
-| Token | Purpose | Lifetime (default) | Sent to APIs? |
-|-------|---------|-------------------|---------------|
-| **Access token** | Authorize API requests | **15 minutes** | Yes — `Authorization` header |
-| **Refresh token** | Obtain a new token pair when the access token expires | **30 days** | No — only sent to Auth Service refresh endpoint |
+| Token             | Purpose                                               | Lifetime (default) | Sent to APIs?                                   |
+| ----------------- | ----------------------------------------------------- | ------------------ | ----------------------------------------------- |
+| **Access token**  | Authorize API requests                                | **15 minutes**     | Yes — `Authorization` header                    |
+| **Refresh token** | Obtain a new token pair when the access token expires | **30 days**        | No — only sent to Auth Service refresh endpoint |
 
 Both tokens are signed with **RS256** (RSA + SHA-256). Access and refresh tokens use **separate RSA key pairs**, so they cannot be interchanged.
-
-```mermaid
-flowchart LR
-  subgraph Client
-    A[Login UI]
-    B[Token storage]
-    C[HTTP client]
-  end
-
-  subgraph AuthService["Auth Service"]
-    D[Login / Refresh]
-    E[(Sessions DB)]
-  end
-
-  subgraph APIs["Other microservices"]
-    F[Protected endpoints]
-  end
-
-  A -->|phone + OTP| D
-  D -->|accessToken + refreshToken| B
-  C -->|Bearer accessToken| F
-  C -->|401| D
-  D -->|new token pair| B
-  D --- E
-```
-
----
 
 ## Token format
 
@@ -48,11 +21,11 @@ Each token is a standard JWT string: `header.payload.signature`.
 
 ### Claims (payload)
 
-| Claim | Description |
-|-------|-------------|
-| `sub` | User ID (UUID) — use this as the authenticated user identifier |
-| `iat` | Issued-at timestamp (Unix seconds) |
-| `exp` | Expiration timestamp (Unix seconds) |
+| Claim          | Description                                                                 |
+| -------------- | --------------------------------------------------------------------------- |
+| `sub`          | User ID (UUID) — use this as the authenticated user identifier              |
+| `iat`          | Issued-at timestamp (Unix seconds)                                          |
+| `exp`          | Expiration timestamp (Unix seconds)                                         |
 | `kid` (header) | Key ID — `auth-access` for access tokens, `auth-refresh` for refresh tokens |
 
 Example decoded access token (for debugging only — **do not trust decoded data without server verification**):
@@ -106,29 +79,6 @@ sequenceDiagram
 
 ---
 
-### 2. Authenticated API requests
-
-Every request to a protected endpoint must include the access token:
-
-```http
-Authorization: Bearer <accessToken>
-```
-
-```mermaid
-sequenceDiagram
-  participant App as Frontend App
-  participant API as Backend API
-
-  App->>API: Request + Authorization: Bearer {accessToken}
-
-  alt Access token valid
-    API-->>App: 2xx Response
-  else Access token expired or invalid
-    API-->>App: 401 Unauthorized
-    Note over App: Trigger refresh flow (see below)
-  end
-```
-
 **Rules**
 
 - Send only the **access token** in the `Authorization` header (never the refresh token).
@@ -175,12 +125,12 @@ You **must** replace both stored tokens after every refresh. Reusing an old refr
 
 Base URL: your deployed Auth Service origin (e.g. `https://auth.example.com`).
 
-| Action | Method | Path | Auth required |
-|--------|--------|------|---------------|
-| Request OTP | `POST` | `/api/v1/auth/otp` | No |
-| Login with OTP | `POST` | `/api/v1/auth/otp/login` | No |
-| Refresh tokens | `POST` | `/api/v1/auth/token` | No (body carries tokens) |
-| JWKS (public keys) | `GET` | `/.well-known/jwks.json` | No |
+| Action             | Method | Path                     | Auth required            |
+| ------------------ | ------ | ------------------------ | ------------------------ |
+| Request OTP        | `POST` | `/api/v1/auth/otp`       | No                       |
+| Login with OTP     | `POST` | `/api/v1/auth/otp/login` | No                       |
+| Refresh tokens     | `POST` | `/api/v1/auth/token`     | No (body carries tokens) |
+| JWKS (public keys) | `GET`  | `/.well-known/jwks.json` | No                       |
 
 ### Request OTP
 
@@ -225,10 +175,10 @@ Content-Type: application/json
 
 **Common errors**
 
-| Status | Meaning | Client action |
-|--------|---------|---------------|
-| `401` | Invalid or expired OTP | Show error; let user request a new OTP |
-| `404` | User not found locally | Rare after OTP flow; show support message |
+| Status | Meaning                | Client action                             |
+| ------ | ---------------------- | ----------------------------------------- |
+| `401`  | Invalid or expired OTP | Show error; let user request a new OTP    |
+| `404`  | User not found locally | Rare after OTP flow; show support message |
 
 ---
 
@@ -259,12 +209,12 @@ Content-Type: application/json
 
 **Common errors — treat as “logged out”**
 
-| Status | Error (typical) | Meaning |
-|--------|-----------------|---------|
-| `401` | Invalid or expired refresh token | Refresh JWT invalid |
-| `401` | Refresh token not found or already revoked | Token reused after rotation, or session revoked |
-| `401` | Session has been revoked | User logged out server-side / security rotation |
-| `401` | Session has expired | Refresh session older than 30 days |
+| Status | Error (typical)                            | Meaning                                         |
+| ------ | ------------------------------------------ | ----------------------------------------------- |
+| `401`  | Invalid or expired refresh token           | Refresh JWT invalid                             |
+| `401`  | Refresh token not found or already revoked | Token reused after rotation, or session revoked |
+| `401`  | Session has been revoked                   | User logged out server-side / security rotation |
+| `401`  | Session has expired                        | Refresh session older than 30 days              |
 
 On any of these: **clear stored tokens** and redirect the user to login.
 
@@ -274,75 +224,8 @@ On any of these: **clear stored tokens** and redirect the user to login.
 
 ### Token storage
 
-| Do | Don't |
-|----|-------|
-| Store `accessToken` and `refreshToken` in secure storage (httpOnly cookie if BFF exists; otherwise `localStorage` / secure mobile storage per platform guidelines) | Send `refreshToken` to non-auth APIs |
-| Update **both** tokens after login and after every refresh | Keep using an old refresh token after a successful refresh |
-| Clear both tokens on logout or unrecoverable 401 from refresh | Log or expose tokens in analytics / crash reports |
-
-### HTTP interceptor pattern (recommended)
-
-```mermaid
-flowchart TD
-  A[Outgoing request] --> B{accessToken exists?}
-  B -->|No| C[Redirect to login]
-  B -->|Yes| D[Attach Authorization: Bearer accessToken]
-  D --> E[Send request]
-  E --> F{Response status?}
-  F -->|2xx| G[Return response]
-  F -->|401| H{Already refreshing?}
-  H -->|Yes| I[Queue request / wait]
-  H -->|No| J[POST /api/v1/auth/token]
-  J --> K{Refresh OK?}
-  K -->|Yes| L[Save new token pair]
-  L --> M[Retry original request]
-  K -->|No| N[Clear tokens → login]
-```
-
-**Concurrent 401 handling**
-
-If multiple requests fail with 401 at the same time, run **only one** refresh call and queue the others until it completes. Without this, parallel refreshes can invalidate each other's refresh tokens (rotation race).
-
-**Proactive refresh (optional UX improvement)**
-
-Decode `exp` from the access token (no signature verification needed for timing only) and refresh **~1 minute before expiry** to avoid visible 401 flashes.
-
-### Logout
-
-There is no dedicated logout endpoint in the current flow. To log out locally:
-
-1. Delete `accessToken` and `refreshToken` from client storage
-2. Redirect to the login screen
-
-Server-side sessions remain until they expire or are rotated; for full server revocation, a future logout API may be added.
-
----
-
-## Quick reference diagram (full lifecycle)
-
-```mermaid
-stateDiagram-v2
-  [*] --> LoggedOut
-
-  LoggedOut --> Authenticated: Login success\n(store token pair)
-
-  Authenticated --> Authenticated: API call with\nBearer accessToken
-  Authenticated --> Refreshing: 401 or\nproactive refresh
-  Refreshing --> Authenticated: POST /auth/token\n(save NEW pair)
-  Refreshing --> LoggedOut: Refresh failed\n(clear tokens)
-
-  Authenticated --> LoggedOut: User logout\n(clear tokens)
-```
-
----
-
-## Summary for frontend
-
-1. **Login** → `POST /api/v1/auth/otp/login` → save `accessToken` + `refreshToken`.
-2. **Every API call** → `Authorization: Bearer <accessToken>`.
-3. **Access token TTL** → 15 minutes; expect **401** when expired.
-4. **On 401** → `POST /api/v1/auth/token` with **both** current tokens → save the **new pair** → retry the failed request.
-5. **Refresh rotation** → old refresh token becomes invalid immediately after a successful refresh.
-6. **Refresh failure (401)** → clear tokens and send user to login.
-
-For backend implementation details (sessions, Kafka, database), see Auth Service internal docs.
+| Do                                                                                                                                                                 | Don't                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| Store `accessToken` and `refreshToken` in secure storage (httpOnly cookie if BFF exists; otherwise `localStorage` / secure mobile storage per platform guidelines) | Send `refreshToken` to non-auth APIs                       |
+| Update **both** tokens after login and after every refresh                                                                                                         | Keep using an old refresh token after a successful refresh |
+| Clear both tokens on logout or unrecoverable 401 from refresh                                                                                                      | Log or expose tokens in analytics / crash reports          |
